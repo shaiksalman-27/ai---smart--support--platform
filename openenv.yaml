@@ -5,10 +5,12 @@ description: >
   Agents classify issues, assign priority, request missing information,
   resolve safe cases, escalate risky cases, and close tickets safely.
 
-entrypoint: app.main:app
+entrypoint: main:app
 
 environment:
   type: api
+  host: 0.0.0.0
+  port: 7860
   endpoints:
     reset: /reset
     step: /step
