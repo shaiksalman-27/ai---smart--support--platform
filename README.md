@@ -58,10 +58,10 @@ Each step returns a typed `Observation` model:
 
 ## Reward design
 
-The reward gives partial progress:
+The reward gives partial progress for:
 - correct classification
 - correct priority
-- correct info request
+- correct information request
 - correct resolution or escalation
 - safe closure
 
@@ -75,15 +75,9 @@ Penalties are given for:
 
 The grader returns a deterministic score between `0.0` and `1.0`.
 
-Scoring components:
-- category correctness
-- priority correctness
-- info request correctness
-- resolution or escalation correctness
-- safe completion
-
-## Setup
+## Run locally
 
 ```bash
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 7860
+uvicorn main:app --reload --host 0.0.0.0 --port 7860
+```
