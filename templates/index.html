@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI Smart Support & Cybersecurity Assistant</title>
+    <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">AI</div>
+                <div>
+                    <h2>NeoHub Shield</h2>
+                    <p>Support + Security</p>
+                </div>
+            </div>
+
+            <div class="side-section">
+                <h3>Quick Demo</h3>
+                <button class="side-btn green-btn" onclick="setDemo('login')">Login Issue</button>
+                <button class="side-btn amber-btn" onclick="setDemo('payment')">Payment Issue</button>
+                <button class="side-btn red-btn" onclick="setDemo('hack')">Hacked Device</button>
+                <button class="side-btn blue-btn" onclick="setDemo('crash')">App Crash</button>
+            </div>
+
+            <div class="side-section">
+                <h3>Project Highlights</h3>
+                <ul class="side-list">
+                    <li>AI Issue Analysis</li>
+                    <li>Cyber Risk Detection</li>
+                    <li>Automatic Safe Recovery</li>
+                    <li>Voice Input</li>
+                    <li>History & Report Download</li>
+                </ul>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div>
+                    <h1>AI Smart Support & Cybersecurity Assistant</h1>
+                    <p>Professional issue analysis, cyber risk detection, and guided recovery dashboard</p>
+                </div>
+                <div class="status-pill">System Online</div>
+            </header>
+
+            <section class="hero-grid">
+                <div class="hero-card">
+                    <div class="hero-title-row">
+                        <h2>Describe the issue</h2>
+                        <span class="sub-badge">AI Enabled</span>
+                    </div>
+
+                    <textarea
+                        id="issueInput"
+                        placeholder="Type your issue here or use the microphone... Example: My phone is slow, random popups are coming, battery is draining fast, and I think it is hacked."
+                    ></textarea>
+
+                    <div class="action-row">
+                        <button class="primary-btn" onclick="analyze()">Analyze</button>
+                        <button class="secondary-btn" onclick="autoRecover()">Auto Recover</button>
+                        <button class="outline-btn" onclick="startMic()">🎤 Mic Input</button>
+                        <button class="outline-btn" onclick="downloadReport()">⬇ Download Report</button>
+                    </div>
+                </div>
+
+                <div class="stats-card">
+                    <h2>Overview</h2>
+                    <div class="stat-boxes">
+                        <div class="stat-box">
+                            <span class="stat-label">Last Category</span>
+                            <span id="miniCategory" class="stat-value">-</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">Risk Level</span>
+                            <span id="miniRisk" class="stat-value">-</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">Risk Score</span>
+                            <span id="miniScore" class="stat-value">-</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">Recovery Status</span>
+                            <span id="miniRecovery" class="stat-value">-</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="loadingBar" class="loading-bar hidden">
+                <div class="loading-line"></div>
+                <p>Analyzing issue...</p>
+            </section>
+
+            <section class="results-grid">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>Support Analysis</h3>
+                        <span id="priorityBadge" class="badge neutral-badge">-</span>
+                    </div>
+
+                    <div class="info-line">
+                        <span class="label">Category</span>
+                        <span id="category">-</span>
+                    </div>
+
+                    <div class="info-line">
+                        <span class="label">Support Confidence</span>
+                        <span id="supportConfidence">-</span>
+                    </div>
+
+                    <div class="typed-box" id="supportText">Analyze an issue to see support results.</div>
+
+                    <h4>Why this result</h4>
+                    <ul id="supportReasons" class="styled-list"></ul>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>Security Intelligence</h3>
+                        <span id="riskBadge" class="badge neutral-badge">-</span>
+                    </div>
+
+                    <div class="info-line">
+                        <span class="label">Risk Score</span>
+                        <span id="riskScore">-</span>
+                    </div>
+
+                    <div class="info-line">
+                        <span class="label">Security Confidence</span>
+                        <span id="securityConfidence">-</span>
+                    </div>
+
+                    <div class="meter">
+                        <div id="meterBar" class="meter-bar"></div>
+                    </div>
+
+                    <div id="securitySummary" class="typed-box">Security summary will appear here.</div>
+
+                    <h4>Detected Signals</h4>
+                    <ul id="detectedSignals" class="styled-list"></ul>
+                </div>
+            </section>
+
+            <section class="bottom-grid">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>Recovery Plan</h3>
+                        <span class="sub-badge">Safe Workflow</span>
+                    </div>
+                    <ul id="recoverySteps" class="styled-list"></ul>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>Auto Recovery</h3>
+                        <span id="recoveryStatusBadge" class="badge neutral-badge">-</span>
+                    </div>
+                    <div id="autoRecoveryBox" class="typed-box">Run Auto Recover to generate automatic safe recovery guidance.</div>
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-header">
+                    <h3>Issue History</h3>
+                    <button class="small-btn" onclick="clearHistory()">Clear History</button>
+                </div>
+                <div id="historyList" class="history-list">
+                    <p class="empty-text">No history yet.</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
