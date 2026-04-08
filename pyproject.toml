@@ -2,7 +2,10 @@
 name = "ai-smart-support"
 version = "0.1.0"
 description = "AI Smart Support & Cybersecurity Assistant"
-authors = ["Shaik Salman"]
+requires-python = ">=3.10"
+dependencies = [
+  "openenv-core>=0.2.0",
+]
 
-[tool.openenv]
-entry_point = "inference.py"
+[project.scripts]
+server = "app.main:app"
