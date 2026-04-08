@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 ---
 title: NeoHub Shield
 emoji: 🛡️
@@ -13,13 +12,9 @@ pinned: false
 
 AI Smart Support & Cybersecurity Assistant
 
-Features:
+## Features
 - AI issue analysis
 - Security risk detection
 - Auto recovery guidance
 - Voice input
 - History and report download
-=======
-# ai---smart--support--platform
-AI Smart Support &amp; Cybersecurity Assistant using FastAPI
->>>>>>> 695bca94ac4854e6d000e0464c0ba863363dcedc
