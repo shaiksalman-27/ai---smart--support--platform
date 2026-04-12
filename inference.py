@@ -10,13 +10,6 @@ HF_TOKEN = os.getenv("HF_TOKEN")
 
 
 def llm_ping():
-    if not API_BASE_URL:
-        raise RuntimeError("Missing API_BASE_URL")
-    if not MODEL_NAME:
-        raise RuntimeError("Missing MODEL_NAME")
-    if not HF_TOKEN:
-        raise RuntimeError("Missing HF_TOKEN")
-
     client = OpenAI(
         base_url=API_BASE_URL,
         api_key=HF_TOKEN,
@@ -27,10 +20,10 @@ def llm_ping():
         messages=[
             {
                 "role": "user",
-                "content": "Reply with exactly five words about support automation."
+                "content": "Reply in exactly five words."
             }
         ],
-        max_tokens=20,
+        max_tokens=10,
     )
 
     return response.choices[0].message.content
@@ -52,29 +45,18 @@ def run_task(task_id, actions):
     reset_data = post_json("/reset", {"task_id": task_id})
     print("[STEP]", {"task_id": task_id, "reset": reset_data})
 
-    final_step = None
     for action_type, content in actions:
-        final_step = post_json(
+        step_data = post_json(
             "/step",
             {
                 "action_type": action_type,
                 "content": content,
             },
         )
-        print("[STEP]", {"task_id": task_id, "action": action_type, "result": final_step})
+        print("[STEP]", {"task_id": task_id, "action": action_type, "result": step_data})
 
     grader_data = get_json("/grader")
     print("[STEP]", {"task_id": task_id, "grader": grader_data})
-
-    state_data = get_json("/state")
-    print("[STEP]", {"task_id": task_id, "state": state_data})
-
-    return {
-        "task_id": task_id,
-        "final_reward": (final_step or {}).get("reward", {}),
-        "grader": grader_data,
-        "state": state_data,
-    }
 
 
 def run():
@@ -83,47 +65,38 @@ def run():
     llm_text = llm_ping()
     print("[STEP]", {"llm_proxy_call": llm_text})
 
-    results = []
-
-    results.append(
-        run_task(
-            "easy_password_reset",
-            [
-                ("classify", "account_access"),
-                ("set_priority", "low"),
-                ("resolve", "send_password_reset_steps"),
-                ("close", ""),
-            ],
-        )
+    run_task(
+        "easy_password_reset",
+        [
+            ("classify", "account_access"),
+            ("set_priority", "low"),
+            ("resolve", "send_password_reset_steps"),
+            ("close", ""),
+        ],
     )
 
-    results.append(
-        run_task(
-            "medium_payment_failure",
-            [
-                ("classify", "billing"),
-                ("set_priority", "high"),
-                ("ask_info", "Please share your transaction id."),
-                ("resolve", "request_transaction_id_and_open_billing_review"),
-                ("close", ""),
-            ],
-        )
+    run_task(
+        "medium_payment_failure",
+        [
+            ("classify", "billing"),
+            ("set_priority", "high"),
+            ("ask_info", "Please share your transaction id."),
+            ("resolve", "request_transaction_id_and_open_billing_review"),
+            ("close", ""),
+        ],
     )
 
-    results.append(
-        run_task(
-            "hard_account_takeover",
-            [
-                ("classify", "security"),
-                ("set_priority", "urgent"),
-                ("ask_info", "Please complete identity verification."),
-                ("escalate", "security_ops"),
-                ("close", ""),
-            ],
-        )
+    run_task(
+        "hard_account_takeover",
+        [
+            ("classify", "security"),
+            ("set_priority", "urgent"),
+            ("ask_info", "Please complete identity verification."),
+            ("escalate", "security_ops"),
+            ("close", ""),
+        ],
     )
 
-    print("[STEP]", {"summary": results})
     print("[END]")
 
 
