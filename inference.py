@@ -4,15 +4,18 @@ from openai import OpenAI
 
 LOCAL_BASE_URL = "http://localhost:8000"
 
-API_BASE_URL = os.getenv("API_BASE_URL")
-MODEL_NAME = os.getenv("MODEL_NAME")
-HF_TOKEN = os.getenv("HF_TOKEN")
+API_BASE_URL = os.environ["API_BASE_URL"].rstrip("/")
+MODEL_NAME = os.environ["MODEL_NAME"]
+HF_TOKEN = os.environ["HF_TOKEN"]
+
+if not API_BASE_URL.endswith("/v1"):
+    API_BASE_URL = f"{API_BASE_URL}/v1"
 
 
 def llm_ping():
     client = OpenAI(
-        base_url=API_BASE_URL,
         api_key=HF_TOKEN,
+        base_url=API_BASE_URL,
     )
 
     response = client.chat.completions.create(
@@ -26,7 +29,10 @@ def llm_ping():
         max_tokens=10,
     )
 
-    return response.choices[0].message.content
+    text = response.choices[0].message.content
+    if not text:
+        raise RuntimeError("Empty LLM response")
+    return text
 
 
 def post_json(path, payload):
@@ -63,7 +69,7 @@ def run():
     print("[START]")
 
     llm_text = llm_ping()
-    print("[STEP]", {"llm_proxy_call": llm_text})
+    print("[STEP]", {"llm_proxy_call": llm_text, "api_base_url": API_BASE_URL})
 
     run_task(
         "easy_password_reset",
