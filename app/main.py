@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 import random
 
 from fastapi import FastAPI, Request
@@ -17,16 +17,10 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 
-# -----------------------------
-# Existing web app models
-# -----------------------------
 class IssueRequest(BaseModel):
     issue: str
 
 
-# -----------------------------
-# OpenEnv request models
-# -----------------------------
 class ResetRequest(BaseModel):
     task_id: Optional[str] = None
 
@@ -36,48 +30,50 @@ class StepRequest(BaseModel):
     content: Optional[str] = ""
 
 
-# -----------------------------
-# OpenEnv task data
-# -----------------------------
 TASKS: Dict[str, Dict] = {
     "easy_password_reset": {
         "task_id": "easy_password_reset",
         "ticket": "I cannot log in to my account and need a password reset.",
-        "expected_category": "Account Access",
-        "expected_priority": "Low",
+        "expected_category": "account access",
+        "expected_priority": "low",
         "goal": "Agent should identify password reset issue, provide reset guidance, and close safely.",
         "success_keywords": ["forgot password", "reset password", "password reset", "forgot my password"],
         "safe_close_keywords": ["forgot password", "reset password", "password reset"],
-        "max_steps": 3
+        "max_steps": 4,
     },
     "medium_payment_failure": {
         "task_id": "medium_payment_failure",
         "ticket": "My payment failed but money was deducted from my bank account.",
-        "expected_category": "Billing",
-        "expected_priority": "High",
+        "expected_category": "billing",
+        "expected_priority": "high",
         "goal": "Agent should identify billing issue, ask for relevant transaction details or escalate carefully.",
         "success_keywords": ["transaction id", "payment reference", "bank statement", "billing team", "escalate"],
         "safe_close_keywords": [],
-        "max_steps": 4
+        "max_steps": 4,
     },
     "hard_account_takeover": {
         "task_id": "hard_account_takeover",
         "ticket": "I think someone hacked my account and changed my password.",
-        "expected_category": "Security",
-        "expected_priority": "Critical",
+        "expected_category": "security",
+        "expected_priority": "critical",
         "goal": "Agent should identify account takeover risk, avoid unsafe closure, recommend urgent security steps, and escalate.",
         "success_keywords": ["secure account", "escalate", "security team", "compromised", "change password", "safe device"],
         "safe_close_keywords": [],
-        "max_steps": 4
+        "max_steps": 4,
     },
 }
 
 CURRENT_EPISODE: Dict = {}
 
 
-# -----------------------------
-# Helper functions
-# -----------------------------
+def normalize_score(score: float) -> float:
+    if score <= 0.0:
+        return 0.1
+    if score >= 1.0:
+        return 0.9
+    return round(score, 3)
+
+
 def build_observation() -> Dict:
     return {
         "task_id": CURRENT_EPISODE.get("task_id"),
@@ -91,8 +87,8 @@ def build_observation() -> Dict:
 
 def build_reward(score: float, done: bool) -> Dict:
     return {
-        "score": score,
-        "done": done
+        "score": normalize_score(score),
+        "done": done,
     }
 
 
@@ -117,16 +113,16 @@ def start_episode(task: Dict) -> None:
         "status": "in_progress",
         "last_action": None,
         "last_message": "",
-        "history": []
+        "history": [],
     })
 
 
-def evaluate_action(action_type: str, content: str) -> (float, bool, str):
+def evaluate_action(action_type: str, content: str) -> tuple[float, bool, str]:
     action_type = action_type.lower().strip()
     content_lower = content.lower().strip()
     task_id = CURRENT_EPISODE["task_id"]
 
-    score = 0.0
+    score = 0.1
     done = False
     note = "Action recorded."
 
@@ -135,107 +131,84 @@ def evaluate_action(action_type: str, content: str) -> (float, bool, str):
     CURRENT_EPISODE["last_message"] = content
     CURRENT_EPISODE["history"].append({
         "action_type": action_type,
-        "content": content
+        "content": content,
     })
 
     if action_type == "classify":
-        if task_id == "easy_password_reset":
-            if "account" in content_lower or "password" in content_lower or "access" in content_lower:
-                score = 1.0
-                note = "Correct classification direction."
-            else:
-                score = -0.5
-                note = "Classification seems incorrect."
-        elif task_id == "medium_payment_failure":
-            if "billing" in content_lower or "payment" in content_lower:
-                score = 1.0
-                note = "Correct billing classification."
-            else:
-                score = -0.5
-                note = "Classification seems incorrect."
-        elif task_id == "hard_account_takeover":
-            if "security" in content_lower or "account takeover" in content_lower or "compromised" in content_lower:
-                score = 1.0
-                note = "Correct security classification."
-            else:
-                score = -0.5
-                note = "Security issue was not identified clearly."
+        expected = CURRENT_EPISODE["expected_category"]
+        if expected in content_lower:
+            score = 0.2
+            note = "Correct classification direction."
+        else:
+            score = 0.1
+            note = "Classification seems incorrect."
 
     elif action_type == "prioritize":
-        if task_id == "easy_password_reset":
-            if "low" in content_lower:
-                score = 1.0
-                note = "Priority matches task."
-            else:
-                score = -0.5
-                note = "Priority does not match expected level."
-        elif task_id == "medium_payment_failure":
-            if "high" in content_lower:
-                score = 1.0
-                note = "Priority matches task."
-            else:
-                score = -0.5
-                note = "Payment failure with deduction should be high priority."
-        elif task_id == "hard_account_takeover":
-            if "critical" in content_lower or "high" in content_lower:
-                score = 1.0
-                note = "Urgent priority recognized."
-            else:
-                score = -1.0
-                note = "This security issue needed urgent priority."
+        expected = CURRENT_EPISODE["expected_priority"]
+        if expected in content_lower:
+            score = 0.2
+            note = "Priority matches task."
+        else:
+            score = 0.1
+            note = "Priority does not match expected level."
 
     elif action_type == "respond":
         matched = any(keyword in content_lower for keyword in CURRENT_EPISODE["success_keywords"])
         if matched:
-            score = 1.0
+            score = 0.2
             note = "Helpful response."
         else:
-            score = 0.2
+            score = 0.1
             note = "Response recorded, but could be stronger."
 
     elif action_type == "ask_info":
         if task_id == "medium_payment_failure":
             if any(word in content_lower for word in ["transaction", "reference", "payment", "bank", "screenshot"]):
-                score = 1.0
+                score = 0.2
                 note = "Good request for relevant payment details."
             else:
-                score = 0.2
+                score = 0.1
                 note = "Question asked, but not very targeted."
+        elif task_id == "hard_account_takeover":
+            if any(word in content_lower for word in ["identity", "verification", "email", "phone", "confirm"]):
+                score = 0.2
+                note = "Good request for security verification details."
+            else:
+                score = 0.1
+                note = "Additional info requested, but not targeted."
         else:
-            score = 0.2
+            score = 0.1
             note = "Additional info requested."
 
     elif action_type == "escalate":
         if task_id in ["medium_payment_failure", "hard_account_takeover"]:
-            score = 1.5
+            score = 0.2
             done = True
             CURRENT_EPISODE["status"] = "resolved"
             note = "Correct escalation."
         else:
-            score = -0.2
+            score = 0.1
             note = "Escalation not necessary for this simple task."
 
     elif action_type == "close":
         if task_id == "easy_password_reset":
             if any(keyword in content_lower for keyword in CURRENT_EPISODE["safe_close_keywords"]):
-                score = 2.0
+                score = 0.2
                 done = True
                 CURRENT_EPISODE["status"] = "resolved"
                 note = "Safe resolution and closure."
             else:
-                score = -0.5
+                score = 0.1
                 note = "Closure happened without enough guidance."
         elif task_id == "medium_payment_failure":
-            score = -1.0
-            done = False
+            score = 0.1
             note = "Unsafe to close this before validation or escalation."
         elif task_id == "hard_account_takeover":
-            score = -2.0
-            done = False
+            score = 0.1
             note = "Unsafe closure for account takeover case."
 
     else:
-        score = -0.2
+        score = 0.1
         note = "Unknown action type."
 
     if CURRENT_EPISODE["step_count"] >= CURRENT_EPISODE["max_steps"] and not done:
@@ -243,12 +216,9 @@ def evaluate_action(action_type: str, content: str) -> (float, bool, str):
         CURRENT_EPISODE["status"] = "max_steps_reached"
         note = f"{note} Maximum steps reached."
 
-    return score, done, note
+    return normalize_score(score), done, note
 
 
-# -----------------------------
-# Frontend routes
-# -----------------------------
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
@@ -266,7 +236,7 @@ def analyze_issue(data: IssueRequest):
     if not issue:
         return JSONResponse(
             status_code=400,
-            content={"error": "Issue text is required."}
+            content={"error": "Issue text is required."},
         )
 
     support = analyze_support_issue(issue)
@@ -283,12 +253,9 @@ def analyze_issue(data: IssueRequest):
         "risk_level": security["risk_level"],
         "risk_score": security["risk_score"],
         "security_confidence": security.get("confidence", 75),
-        "security_summary": security.get(
-            "security_summary",
-            "Security analysis completed."
-        ),
+        "security_summary": security.get("security_summary", "Security analysis completed."),
         "detected_signals": security["detected_signals"],
-        "recovery_steps": steps
+        "recovery_steps": steps,
     }
 
 
@@ -299,7 +266,7 @@ def auto_recover(data: IssueRequest):
     if not issue:
         return JSONResponse(
             status_code=400,
-            content={"error": "Issue text is required."}
+            content={"error": "Issue text is required."},
         )
 
     actions = []
@@ -310,7 +277,7 @@ def auto_recover(data: IssueRequest):
             "Password reset workflow recommended",
             "Session refresh suggested",
             "Re-login guidance prepared",
-            "Account access support response generated"
+            "Account access support response generated",
         ]
         status = "Recovered"
 
@@ -319,7 +286,7 @@ def auto_recover(data: IssueRequest):
             "Transaction verification suggested",
             "Billing escalation path prepared",
             "Retry payment only after status check",
-            "Customer safety note generated"
+            "Customer safety note generated",
         ]
         status = "Partially Recovered"
 
@@ -329,7 +296,7 @@ def auto_recover(data: IssueRequest):
             "Suspicious apps review suggested",
             "Permission audit initiated conceptually",
             "Security scan guidance prepared",
-            "Password change from safe device recommended"
+            "Password change from safe device recommended",
         ]
         status = "Security Stabilized"
 
@@ -338,7 +305,7 @@ def auto_recover(data: IssueRequest):
             "Restart application suggested",
             "Cache clearing recommended",
             "Update check suggested",
-            "Issue reproduction note prepared"
+            "Issue reproduction note prepared",
         ]
         status = "Partially Recovered"
 
@@ -347,7 +314,7 @@ def auto_recover(data: IssueRequest):
             "Background app cleanup suggested",
             "Storage cleanup recommended",
             "Restart device recommended",
-            "Pending updates check suggested"
+            "Pending updates check suggested",
         ]
         status = "Optimized"
 
@@ -355,20 +322,17 @@ def auto_recover(data: IssueRequest):
         actions = [
             "General troubleshooting guidance prepared",
             "Basic recovery recommendations generated",
-            "Manual review may still be needed"
+            "Manual review may still be needed",
         ]
         status = "Reviewed"
 
     return {
         "status": status,
         "actions": actions,
-        "note": "Automatic safe recovery guidance has been generated. Some cases may still need manual action."
+        "note": "Automatic safe recovery guidance has been generated. Some cases may still need manual action.",
     }
 
 
-# -----------------------------
-# OpenEnv routes
-# -----------------------------
 @app.get("/tasks")
 def get_tasks():
     return {
@@ -376,7 +340,7 @@ def get_tasks():
             {
                 "task_id": task["task_id"],
                 "goal": task["goal"],
-                "ticket": task["ticket"]
+                "ticket": task["ticket"],
             }
             for task in TASKS.values()
         ]
@@ -394,7 +358,7 @@ def reset_env(data: Optional[ResetRequest] = None):
 
     return {
         "observation": build_observation(),
-        "reward": build_reward(0, False)
+        "reward": build_reward(0.1, False),
     }
 
 
@@ -403,12 +367,12 @@ def state_env():
     if not CURRENT_EPISODE:
         return JSONResponse(
             status_code=400,
-            content={"error": "Environment not initialized. Call /reset first."}
+            content={"error": "Environment not initialized. Call /reset first."},
         )
 
     return {
         "observation": build_observation(),
-        "reward": build_reward(0, False)
+        "reward": build_reward(0.1, False),
     }
 
 
@@ -417,7 +381,7 @@ def step_env(action: StepRequest):
     if not CURRENT_EPISODE:
         return JSONResponse(
             status_code=400,
-            content={"error": "Environment not initialized. Call /reset first."}
+            content={"error": "Environment not initialized. Call /reset first."},
         )
 
     score, done, note = evaluate_action(action.action_type, action.content or "")
@@ -427,8 +391,8 @@ def step_env(action: StepRequest):
         "reward": build_reward(score, done),
         "info": {
             "note": note,
-            "history": CURRENT_EPISODE.get("history", [])
-        }
+            "history": CURRENT_EPISODE.get("history", []),
+        },
     }
 
 
@@ -437,42 +401,43 @@ def grader():
     if not CURRENT_EPISODE:
         return JSONResponse(
             status_code=400,
-            content={"error": "Environment not initialized. Call /reset first."}
+            content={"error": "Environment not initialized. Call /reset first."},
         )
 
     history = CURRENT_EPISODE.get("history", [])
-    total_score = 0.0
+    total_score = 0.1
 
     for item in history:
         text = f"{item.get('action_type', '')} {item.get('content', '')}".lower()
 
         if CURRENT_EPISODE["task_id"] == "easy_password_reset":
             if "password" in text or "reset" in text:
-                total_score += 1
+                total_score += 0.2
             if "close" in text:
-                total_score += 1
+                total_score += 0.2
 
         elif CURRENT_EPISODE["task_id"] == "medium_payment_failure":
             if "transaction" in text or "reference" in text or "billing" in text:
-                total_score += 1
+                total_score += 0.2
             if "escalate" in text:
-                total_score += 1.5
+                total_score += 0.2
 
         elif CURRENT_EPISODE["task_id"] == "hard_account_takeover":
             if "security" in text or "compromised" in text or "safe device" in text:
-                total_score += 1
+                total_score += 0.2
             if "escalate" in text:
-                total_score += 1.5
+                total_score += 0.2
             if "close" in text:
-                total_score -= 2
+                total_score -= 0.1
 
-    passed = total_score >= 2
+    total_score = normalize_score(total_score)
+    passed = total_score >= 0.5
 
     return {
         "task_id": CURRENT_EPISODE["task_id"],
         "passed": passed,
         "final_score": total_score,
-        "history": history
+        "history": history,
     }
 
 
@@ -483,29 +448,29 @@ def baseline():
             {
                 "task_id": "easy_password_reset",
                 "recommended_actions": [
-                    {"action_type": "classify", "content": "Account Access"},
-                    {"action_type": "prioritize", "content": "Low"},
+                    {"action_type": "classify", "content": "account access"},
+                    {"action_type": "prioritize", "content": "low"},
                     {"action_type": "respond", "content": "Please use the forgot password option to reset your password."},
-                    {"action_type": "close", "content": "Password reset guidance provided."}
-                ]
+                    {"action_type": "close", "content": "Password reset guidance provided."},
+                ],
             },
             {
                 "task_id": "medium_payment_failure",
                 "recommended_actions": [
-                    {"action_type": "classify", "content": "Billing"},
-                    {"action_type": "prioritize", "content": "High"},
+                    {"action_type": "classify", "content": "billing"},
+                    {"action_type": "prioritize", "content": "high"},
                     {"action_type": "ask_info", "content": "Please share transaction ID or payment reference number."},
-                    {"action_type": "escalate", "content": "Escalating to billing support team."}
-                ]
+                    {"action_type": "escalate", "content": "Escalating to billing support team."},
+                ],
             },
             {
                 "task_id": "hard_account_takeover",
                 "recommended_actions": [
-                    {"action_type": "classify", "content": "Security"},
-                    {"action_type": "prioritize", "content": "Critical"},
+                    {"action_type": "classify", "content": "security"},
+                    {"action_type": "prioritize", "content": "critical"},
                     {"action_type": "respond", "content": "Use a safe device and change your password immediately if possible."},
-                    {"action_type": "escalate", "content": "Escalating to security team for account takeover handling."}
-                ]
-            }
+                    {"action_type": "escalate", "content": "Escalating to security team for account takeover handling."},
+                ],
+            },
         ]
     }
