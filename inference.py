@@ -4,12 +4,9 @@ from openai import OpenAI
 
 LOCAL_BASE_URL = "http://localhost:8000"
 
-API_BASE_URL = os.environ["API_BASE_URL"].rstrip("/")
+API_BASE_URL = os.environ["API_BASE_URL"]
 API_KEY = os.environ["API_KEY"]
 MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o-mini")
-
-if not API_BASE_URL.endswith("/v1"):
-    API_BASE_URL = f"{API_BASE_URL}/v1"
 
 
 def llm_ping():
@@ -21,15 +18,15 @@ def llm_ping():
     response = client.chat.completions.create(
         model=MODEL_NAME,
         messages=[
-            {"role": "user", "content": "Reply in exactly five words."}
+            {
+                "role": "user",
+                "content": "Reply in exactly five words."
+            }
         ],
         max_tokens=10,
     )
 
-    text = response.choices[0].message.content
-    if not text:
-        raise RuntimeError("Empty LLM response")
-    return text
+    return response.choices[0].message.content
 
 
 def post_json(path, payload):
