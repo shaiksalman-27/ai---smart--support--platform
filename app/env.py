@@ -37,9 +37,7 @@ class SupportOpsEnv:
             return self._build_observation(), reward, True, {"message": "done"}
 
         state.step_count += 1
-        action_dict = action.model_dump()
-        state.history.append(action_dict)
-
+        state.history.append(action.model_dump())
         reward_reason = "Action processed."
 
         if action.action_type == "classify":
@@ -66,10 +64,11 @@ class SupportOpsEnv:
                     if simple_name in message or field.lower() in message:
                         matched_fields.append(field)
 
+                for field in matched_fields:
+                    if field not in state.asked_info_fields:
+                        state.asked_info_fields.append(field)
+
                 if matched_fields:
-                    for field in matched_fields:
-                        if field not in state.asked_info_fields:
-                            state.asked_info_fields.append(field)
                     reward_reason = "Useful missing information requested."
                 else:
                     reward_reason = "Asked for information, but not the required information."

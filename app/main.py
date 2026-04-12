@@ -50,26 +50,19 @@ def action_from_request(req: StepRequest) -> Action:
 
     if action_type == "classify":
         payload["category"] = content.lower().replace(" ", "_")
-
     elif action_type in ["prioritize", "set_priority"]:
         payload["action_type"] = "set_priority"
         payload["priority"] = content.lower()
-
     elif action_type == "ask_info":
         payload["message"] = content
-
     elif action_type == "respond":
         payload["message"] = content
-
     elif action_type == "resolve":
         payload["resolution"] = content.lower().replace(" ", "_")
-
     elif action_type == "escalate":
         payload["escalation_team"] = content.lower().replace(" ", "_")
-
     elif action_type == "close":
         payload["action_type"] = "close"
-
     else:
         payload["message"] = content
 
@@ -91,10 +84,7 @@ def analyze_issue(data: IssueRequest):
     issue = data.issue.strip()
 
     if not issue:
-        return JSONResponse(
-            status_code=400,
-            content={"error": "Issue text is required."},
-        )
+        return JSONResponse(status_code=400, content={"error": "Issue text is required."})
 
     support = analyze_support_issue(issue)
     security = analyze_security_risk(issue)
@@ -121,10 +111,7 @@ def auto_recover(data: IssueRequest):
     issue = data.issue.lower().strip()
 
     if not issue:
-        return JSONResponse(
-            status_code=400,
-            content={"error": "Issue text is required."},
-        )
+        return JSONResponse(status_code=400, content={"error": "Issue text is required."})
 
     actions = []
     status = "Optimized"
@@ -225,10 +212,7 @@ def reset_env(data: Optional[ResetRequest] = None):
 def state_env():
     current = env.state()
     if "error" in current:
-        return JSONResponse(
-            status_code=400,
-            content=current,
-        )
+        return JSONResponse(status_code=400, content=current)
 
     done = False
     if env.current_state is not None:
