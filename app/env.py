@@ -1,6 +1,6 @@
-from copy import deepcopy
 from typing import Any, Dict, Tuple
 
+from app.graders import grade_episode
 from app.models import Action, Observation, RewardModel, TicketState
 from app.tasks import TASKS, get_task
 
@@ -13,7 +13,6 @@ class SupportOpsEnv:
         if task_id not in TASKS:
             raise ValueError(f"Unknown task_id: {task_id}")
 
-        # Use a fresh copy every time
         self.current_state = get_task(task_id)
         return self._build_observation()
 
@@ -29,39 +28,32 @@ class SupportOpsEnv:
         state = self.current_state
 
         if state.done:
+            grader_result = grade_episode(state)
             reward = RewardModel(
-                value=0.1,
+                value=grader_result.score,
                 reason="Episode already finished.",
-                progress={},
+                progress=grader_result.details,
             )
             return self._build_observation(), reward, True, {"message": "done"}
 
         state.step_count += 1
-        reward_value = 0.1
-        reward_reason = "Action processed."
-        progress: Dict[str, float] = {}
-
         action_dict = action.model_dump()
         state.history.append(action_dict)
+
+        reward_reason = "Action processed."
 
         if action.action_type == "classify":
             if action.category == state.true_category:
                 state.classified_category = action.category
-                reward_value = 0.2
-                progress["category"] = 0.2
                 reward_reason = "Correct classification."
             else:
-                reward_value = 0.1
                 reward_reason = "Incorrect classification."
 
         elif action.action_type == "set_priority":
             if action.priority == state.true_priority:
                 state.assigned_priority = action.priority
-                reward_value = 0.2
-                progress["priority"] = 0.2
                 reward_reason = "Correct priority."
             else:
-                reward_value = 0.1
                 reward_reason = "Incorrect priority."
 
         elif action.action_type == "ask_info":
@@ -78,34 +70,24 @@ class SupportOpsEnv:
                     for field in matched_fields:
                         if field not in state.asked_info_fields:
                             state.asked_info_fields.append(field)
-                    reward_value = 0.2
-                    progress["info_request"] = 0.2
                     reward_reason = "Useful missing information requested."
                 else:
-                    reward_value = 0.1
                     reward_reason = "Asked for information, but not the required information."
             else:
-                reward_value = 0.1
                 reward_reason = "Unnecessary information request."
 
         elif action.action_type == "resolve":
             if state.expected_resolution and action.resolution == state.expected_resolution:
                 state.resolution_given = action.resolution
-                reward_value = 0.2
-                progress["resolution"] = 0.2
                 reward_reason = "Correct resolution."
             else:
-                reward_value = 0.1
                 reward_reason = "Incorrect resolution."
 
         elif action.action_type == "escalate":
             if state.expected_escalation_team and action.escalation_team == state.expected_escalation_team:
                 state.escalated_to = action.escalation_team
-                reward_value = 0.2
-                progress["escalation"] = 0.2
                 reward_reason = "Correct escalation."
             else:
-                reward_value = 0.1
                 reward_reason = "Incorrect escalation."
 
         elif action.action_type == "close":
@@ -124,30 +106,35 @@ class SupportOpsEnv:
                 unsafe_close = True
 
             if unsafe_close and state.unsafe_to_close_early:
-                reward_value = 0.1
                 reward_reason = "Unsafe early closure."
             else:
                 state.closed = True
                 state.done = True
-                reward_value = 0.2
-                progress["closure"] = 0.2
                 reward_reason = "Ticket closed safely."
 
         else:
-            reward_value = 0.1
             reward_reason = "Invalid action."
 
         if state.step_count >= state.max_steps and not state.done:
             state.done = True
             reward_reason += " Max steps reached."
 
+        grader_result = grade_episode(state)
+
         reward = RewardModel(
-            value=round(reward_value, 3),
+            value=grader_result.score,
             reason=reward_reason,
-            progress=progress,
+            progress=grader_result.details,
         )
 
-        return self._build_observation(), reward, state.done, {"step_count": state.step_count}
+        return self._build_observation(), reward, state.done, {
+            "step_count": state.step_count,
+            "grader": {
+                "task_id": grader_result.task_id,
+                "score": grader_result.score,
+                "details": grader_result.details,
+            },
+        }
 
     def _build_observation(self) -> Observation:
         assert self.current_state is not None
