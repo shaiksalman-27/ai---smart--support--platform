@@ -12,7 +12,7 @@ from app.models import Action
 from app.recovery_logic import get_recovery_steps
 from app.security_logic import analyze_security_risk
 from app.support_logic import analyze_support_issue
-from app.tasks import TASK_METADATA
+from app.tasks import list_tasks
 
 app = FastAPI(title="AI Smart Support & Cybersecurity Assistant")
 
@@ -50,19 +50,26 @@ def action_from_request(req: StepRequest) -> Action:
 
     if action_type == "classify":
         payload["category"] = content.lower().replace(" ", "_")
+
     elif action_type in ["prioritize", "set_priority"]:
         payload["action_type"] = "set_priority"
         payload["priority"] = content.lower()
+
     elif action_type == "ask_info":
         payload["message"] = content
+
     elif action_type == "respond":
         payload["message"] = content
+
     elif action_type == "resolve":
         payload["resolution"] = content.lower().replace(" ", "_")
+
     elif action_type == "escalate":
         payload["escalation_team"] = content.lower().replace(" ", "_")
+
     elif action_type == "close":
-        pass
+        payload["action_type"] = "close"
+
     else:
         payload["message"] = content
 
@@ -193,17 +200,15 @@ def get_tasks():
                 "title": item.title,
                 "objective": item.objective,
             }
-            for item in TASK_METADATA
+            for item in list_tasks()
         ]
     }
 
 
 @app.post("/reset")
 def reset_env(data: Optional[ResetRequest] = None):
-    task_id = data.task_id if data else None
-
-    if task_id is None and TASK_METADATA:
-        task_id = TASK_METADATA[0].task_id
+    tasks = list_tasks()
+    task_id = data.task_id if data and data.task_id else tasks[0].task_id
 
     observation = env.reset(task_id)
 
@@ -218,17 +223,22 @@ def reset_env(data: Optional[ResetRequest] = None):
 
 @app.get("/state")
 def state_env():
-    if env.current_state is None:
+    current = env.state()
+    if "error" in current:
         return JSONResponse(
             status_code=400,
-            content={"error": "Environment not initialized. Call /reset first."},
+            content=current,
         )
 
+    done = False
+    if env.current_state is not None:
+        done = env.current_state.done
+
     return {
-        "observation": env._build_observation().model_dump(),
+        "observation": current,
         "reward": {
             "score": 0.1,
-            "done": env.current_state.done,
+            "done": done,
         },
     }
 
@@ -249,6 +259,8 @@ def step_env(action: StepRequest):
         "reward": {
             "score": reward.value,
             "done": done,
+            "reason": reward.reason,
+            "progress": reward.progress,
         },
         "info": info,
     }
