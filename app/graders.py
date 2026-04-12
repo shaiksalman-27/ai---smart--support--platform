@@ -49,5 +49,18 @@ def grade_episode(state: TicketState) -> GraderResult:
     if safe_completion:
         details["safe_completion"] = 0.2
 
-    total_score = round(sum(details.values()), 3)
-    return GraderResult(task_id=state.task_id, score=total_score, details=details)
+    raw_score = round(sum(details.values()), 3)
+
+    # Hackathon rule: score must be strictly between 0 and 1
+    if raw_score <= 0.0:
+        total_score = 0.1
+    elif raw_score >= 1.0:
+        total_score = 0.9
+    else:
+        total_score = raw_score
+
+    return GraderResult(
+        task_id=state.task_id,
+        score=total_score,
+        details=details,
+    )
